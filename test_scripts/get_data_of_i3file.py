@@ -5,6 +5,7 @@ from I3Tray import I3Tray
 import numpy as np
 from tqdm import tqdm
 from glob import glob
+from argparse import ArgumentParser
 
 def generate_file_list(input_file_or_dir):
     if os.path.isfile(input_file_or_dir):
@@ -19,27 +20,36 @@ def gather_information_of_frame(frame,
                                 dnn_double_names,
                                 dnn_positions_names,
                                 truncated_recos):
-    def get_mc_ic3_label(feature):
-        if np.isfinite(frame['LabelsDeepLearning'][feature]):
-            return frame['LabelsDeepLearning'][feature]
-        print('{} is not finite: {}'.format(feature, frame['LabelsDeepLearning'][feature]))
-        return 0.0
+    def get_mc_ic3_label(feature, output_key='LabelsDeepLearning'):
+        if output_key in frame:
+            if np.isfinite(frame[output_key][feature]):
+                return frame[output_key][feature]
+            print('{} is not finite: {}'.format(feature, frame[output_key][feature]))
+            return 0.0
+        else:
+            return 0
 
     def get_value_of_i3double(feature):
-        if np.isfinite(frame[feature].value):
-            return frame[feature].value
-        print('{} is not finite: {}'.format(feature, frame[feature].value))
-        return 0.0
+        if feature in frame:
+            if np.isfinite(frame[feature].value):
+                return frame[feature].value
+            print('{} is not finite: {}'.format(feature, frame[feature].value))
+            return 0.0
+        else:
+            return 0
 
     def get_coordinates_of_i3position(feature):
-        pos = []
-        for idx in range(3):
-            if np.isfinite(frame[feature][idx]):
-                pos.append(frame[feature][idx])
-            else:
-                print('{} at {} is not finite: {}'.format(feature, idx, frame[feature][idx]))
-                pos.append(0.)
-        return pos
+        if featur in frame:
+            pos = []
+            for idx in range(3):
+                if np.isfinite(frame[feature][idx]):
+                    pos.append(frame[feature][idx])
+                else:
+                    print('{} at {} is not finite: {}'.format(feature, idx, frame[feature][idx]))
+                    pos.append(0.)
+            return pos
+        else:
+            return [0,0,0]
 
     def get_energy_of_i3particle(feature):
         if feature in frame:
@@ -139,10 +149,19 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
     frame_labels_names += truncated_recos
 
     saving_arr = np.array(labels_list)
+    # delete coulumns, that have no entry
+    index_to_delete = []
+    for idx in range(len(saving_arr[0])):
+        if np.count_nonzero(saving_arr[:,idx]) == 0:
+            index_to_delete.append(idx)
+    saving_arr = np.delete(saving_arr, index_to_delete, axis=1)
+    # delete also from fram labelnames
+    for idx in index_to_delete[::-1]:
+        del frame_labels_names[idx]
     np.savetxt(output_file, saving_arr, header=' '.join(frame_labels_names))
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument(
         '-i', '--input',
         type=str,
@@ -157,7 +176,13 @@ def main():
         help='output file with list of features')
     args = parser.parse_args()
 
-    retrieve_data_out_of_i3_file(args.input_file_dir, args.output_file)
+    script_folder = os.path.dirname(os.path.abspath(__file__))
+    build_folder = os.path.join(script_folder, 'build')
+    if not os.path.isdir(build_folder):
+        os.makedirs(build_folder)
+    output_file = os.path.join(build_folder, args.output_file)
+
+    retrieve_data_out_of_i3_file(args.input_file_dir, output_file)
 
 if __name__ == '__main__':
     main()
