@@ -20,26 +20,55 @@ def gather_information_of_frame(frame,
                                 dnn_double_names,
                                 dnn_positions_names,
                                 truncated_recos):
-    def get_mc_ic3_label(feature, output_key='LabelsDeepLearning'):
-        if output_key in frame:
-            if np.isfinite(frame[output_key][feature]):
-                return frame[output_key][feature]
-            print('{} is not finite: {}'.format(feature, frame[output_key][feature]))
-            return 0.0
-        else:
-            return 0
+    def extract_data_of_label(feature, frame_key=None, particle_attribute='energy'):
+        if frame_key is None:
+            if feature in frame:
+                if type(frame[feature]) == dataclasses.I3Double:
+                    if np.isfinite(frame[output_key][feature]):
+                        return frame[output_key][feature]
+                    print('{} is not finite: {}'.format(feature, frame[feature].value))
+                    # return 0.
+                elif type(frame[feature]) == dataclasses.I3Position:
+                    pos = []
+                    for idx in range(3):
+                        if np.isfinite(frame[feature][idx]):
+                            pos.append(frame[feature][idx])
+                        else:
+                            print('{} at {} is not finite: {}'.format(feature, idx, frame[feature][idx]))
+                            pos.append(0.)
+                    return pos
+                elif type(frame[feature]) == dataclasses.I3Particle:
+                    if particle_attribute == 'energy':
+                        if np.isfinite(frame[feature].energy):
+                            return frame[feature].energy
+                        else:
+                            print('{} is not finite: {}'.format(feature, frame[feature].energy))
+                            # return 0.
+                    else:
+                        NameError('particle_attribute {} not implemented yet'.format(particle_attribute))
+                else:
+                    NameError('extraction for dataclasses type {} not implemented yet'.format(type(frame[feature])))
+            else:
+                # print('{} not in frame'.format(feature))
 
-    def get_value_of_i3double(feature):
-        if feature in frame:
-            if np.isfinite(frame[feature].value):
-                return frame[feature].value
-            print('{} is not finite: {}'.format(feature, frame[feature].value))
-            return 0.0
         else:
-            return 0
+            if frame_key in frame and type(frame[frame_key]) == dataclasses.I3MapStringDouble:
+                if feature in frame[frame_key]:
+                    if np.isfinite(frame[frame_key][feature]):
+                        return frame[frame_key][feature]
+                    else:
+                        print('{} is not finite: {}'.format(feature, frame[frame_key][feature]))
+                        # return 0.0
+                else:
+                    # print('{} not in MapString {}'.format(feature, frame_key))
+            else:
+                # print('{} not in frame'.format(feature))
+
+        return 0.
+
 
     def get_coordinates_of_i3position(feature):
-        if featur in frame:
+        if feature in frame:
             pos = []
             for idx in range(3):
                 if np.isfinite(frame[feature][idx]):
@@ -51,11 +80,6 @@ def gather_information_of_frame(frame,
         else:
             return [0,0,0]
 
-    def get_energy_of_i3particle(feature):
-        if feature in frame:
-            return frame[feature].energy
-        else:
-            return 0.0
 
 
     frame_labels = []
@@ -64,11 +88,11 @@ def gather_information_of_frame(frame,
 
     # get MC labels
     for feature in mc_label_names:
-        frame_labels.append(get_mc_ic3_label(feature))
+        frame_labels.append(extract_data_of_label(feature), LabelsDeepLearning)
 
     # get DNN reco doubles
     for feature in dnn_double_names:
-        frame_labels.append(get_value_of_i3double(feature))
+        frame_labels.append(extract_data_of_label(feature))
 
     # get DNN reco positions
     for feature in dnn_positions_names:
@@ -76,7 +100,7 @@ def gather_information_of_frame(frame,
 
     # possible SplineMPE Truncated Energy recos
     for feature in truncated_recos:
-        frame_labels.append(get_energy_of_i3particle(feature))
+        frame_labels.append(extract_data_of_label(feature))
 
     return frame_labels
 
