@@ -20,12 +20,12 @@ def gather_information_of_frame(frame,
                                 dnn_double_names,
                                 dnn_positions_names,
                                 truncated_recos):
-    def extract_data_of_label(feature, frame_key=None, particle_attribute='energy'):
+    def extract_data_of_label(feature, frame_key=None, particle_attribute='energy', num_output_values=1):
         if frame_key is None:
             if feature in frame:
                 if type(frame[feature]) == dataclasses.I3Double:
-                    if np.isfinite(frame[output_key][feature]):
-                        return frame[output_key][feature]
+                    if np.isfinite(frame[feature].value):
+                        return frame[feature].value
                     print('{} is not finite: {}'.format(feature, frame[feature].value))
                     # return 0.
                 elif type(frame[feature]) == dataclasses.I3Position:
@@ -48,8 +48,7 @@ def gather_information_of_frame(frame,
                         NameError('particle_attribute {} not implemented yet'.format(particle_attribute))
                 else:
                     NameError('extraction for dataclasses type {} not implemented yet'.format(type(frame[feature])))
-            else:
-                # print('{} not in frame'.format(feature))
+            # print('{} not in frame'.format(feature))
 
         else:
             if frame_key in frame and type(frame[frame_key]) == dataclasses.I3MapStringDouble:
@@ -59,36 +58,26 @@ def gather_information_of_frame(frame,
                     else:
                         print('{} is not finite: {}'.format(feature, frame[frame_key][feature]))
                         # return 0.0
-                else:
-                    # print('{} not in MapString {}'.format(feature, frame_key))
-            else:
-                # print('{} not in frame'.format(feature))
+                # print('{} not in MapString {}'.format(feature, frame_key))
+            # print('{} not in frame'.format(feature))
 
-        return 0.
-
-
-    def get_coordinates_of_i3position(feature):
-        if feature in frame:
-            pos = []
-            for idx in range(3):
-                if np.isfinite(frame[feature][idx]):
-                    pos.append(frame[feature][idx])
-                else:
-                    print('{} at {} is not finite: {}'.format(feature, idx, frame[feature][idx]))
-                    pos.append(0.)
-            return pos
-        else:
-            return [0,0,0]
-
+        if num_output_values == 1:
+            return 0.
+        elif num_output_values > 1:
+            return np.zeros(num_output_values).tolist()
 
 
     frame_labels = []
 
-    frame_labels.append(frame['MMCTrackList'][0].Ec)
+    if 'MMCTrackList' in frame:
+        if len(frame['MMCTrackList']) > 0:
+            frame_labels.append(frame['MMCTrackList'][0].Ec)
+        else:
+            frame_labels.append(0.)
 
     # get MC labels
     for feature in mc_label_names:
-        frame_labels.append(extract_data_of_label(feature), LabelsDeepLearning)
+        frame_labels.append(extract_data_of_label(feature, 'LabelsDeepLearning'))
 
     # get DNN reco doubles
     for feature in dnn_double_names:
@@ -96,7 +85,7 @@ def gather_information_of_frame(frame,
 
     # get DNN reco positions
     for feature in dnn_positions_names:
-        frame_labels += get_coordinates_of_i3position(feature)
+        frame_labels += extract_data_of_label(feature, num_output_values=3)
 
     # possible SplineMPE Truncated Energy recos
     for feature in truncated_recos:
@@ -140,13 +129,13 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
     for input_file in tqdm(file_list):
         i3file = dataio.I3File(input_file)
         while(i3file.more()):
-            frame = i3file.pop_frame()
+            frame = i3file.pop_physics()
             # check if end of file
             if(frame == None):
                 break
             # check if its a gcd frame, daq frame or a physics frame
-            if 'SplineMPE' not in frame:
-                continue
+            #if 'SplineMPE' not in frame:
+            #    continue
 
             labels_list.append(
                 gather_information_of_frame(
