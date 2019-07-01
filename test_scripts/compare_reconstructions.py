@@ -1,4 +1,7 @@
 
+import os
+import gzip
+from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from matplotlib import lines
 import numpy as np
@@ -159,48 +162,61 @@ def plot_correlation(arr_list, label_list, output):
     fig.savefig(output)
     plt.show()
 
-def do_energy_plots(filename):
-    with open(filename) as file:
-        first_line = file.readline()
-        all_labels = first_line[1:].split()
+def do_energy_plots(filename, output_dir):
+    if filename.endswith(".gz"):
+        with gzip.open(filename, 'r') as file:
+            first_line = file.readline().decode('utf-8')
+            all_labels = first_line[1:].split()
+            all_arr = np.genfromtxt(file)
+    else:
+        with open(filename) as file:
+            first_line = file.readline()
+            all_labels = first_line[1:].split()
+            all_arr = np.genfromtxt(file)
 
-    all_arr = np.genfromtxt(filename)
-    # dnn_uncert = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty')]
-    # dnn_entry = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry')]
     pre_mask = np.ones(len(all_arr[:,0]), dtype=bool)
-    # pre_mask = (dnn_uncert < 0.2) & (dnn_entry > 3e3) & (dnn_entry < 1e6)
+    # # do precuts if dnn is there
+    # if 'DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty' in all_labels:
+    #     dnn_uncert = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty')]
+    #     pre_mask = pre_mask & dnn_uncert
+    # if 'DeepLearning_PrimaryMuonEnergyEntry' in all_labels:
+    #     dnn_entry = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry')]
+    #     pre_mask = pre_mask & (dnn_entry > 3e3) & (dnn_entry < 1e6)
+
     labels_to_extract = [
         'MMCTrackList_CenterEnergy',
         # 'MostVisibleMuonEnergyEntry',
         'DeepLearning_PrimaryMuonEnergyEntry',
-        'SplineMPETruncatedEnergy_SPICEMie_ORIG_Muon',
-        'SplineMPEMuEXDifferential',
+        # 'SplineMPETruncatedEnergy_SPICEMie_ORIG_Muon',
+        # 'SplineMPEMuEXDifferential',
     ]
+
     combined_arr = np.array([all_arr[:, all_labels.index(idx)][pre_mask] for idx in labels_to_extract])
-    combined_arr[1] = combined_arr[1]
+
     plot_pull(combined_arr,
               labels_to_extract[1:],
-              output='plot_pull_energy.png',
+              output=os.path.join(output_dir, 'plot_energy_pull.png'),
               ylog=True,
               )
     plot_data_distr(combined_arr,
                     labels_to_extract,
-                    output='plot_distribution_energy.png',
+                    output=os.path.join(output_dir, 'plot_energy_distribution.png'),
                     xlabel='True Energy / GeV',
                     xlog=True,
                     )
     plot_resolution(combined_arr,
                     labels_to_extract[1:],
-                    output='plot_resolution_energy.png',
+                    output=os.path.join(output_dir, 'plot_energy_resolution.png'),
                     xlabel='True Energy / GeV',
                     xlog=True,
                     )
     for idx in range(1, len(labels_to_extract)):
         plot_correlation([combined_arr[0],combined_arr[idx]],
                         [labels_to_extract[0],labels_to_extract[idx]],
-                        output='plot_correlation_energy_{}.png'.format(labels_to_extract[idx]),)
+                        output=os.path.join(output_dir, 'plot_energy_correlation_{}.png'.format(labels_to_extract[idx])),
+                        )
 
-def do_length_plots(filename):
+def do_length_plots(filename, output_dir):
     with open(filename) as file:
         first_line = file.readline()
         all_labels = first_line[1:].split()
@@ -236,29 +252,54 @@ def do_length_plots(filename):
     dnn_length = np.linalg.norm(dnn_entries - dnn_exits, axis=0)
     pre_mask = dnn_length > 200
     combined_arr = np.array([true_length[pre_mask], dnn_length[pre_mask]])
+    dnn_label = 'DNN_entry_exit_point_diff'
     plot_data_distr(combined_arr,
-                    ['True', 'DNN'],
-                    output='plot_distribution_length.png',
+                    ['True', dnn_label],
+                    output=os.path.join(output_dir, 'plot_length_distribution.png'),
                     xlabel='True Length / m',
                     )
     plot_pull(combined_arr,
-              ['DNN'],
-              output='plot_pull_length.png',
+              [dnn_label],
+              output=os.path.join(output_dir, 'plot_length_pull.png'),
               ylog=True)
     plot_resolution(combined_arr,
-                    ['DNN'],
-                    output='plot_resolution_length.png',
+                    [dnn_label],
+                    output=os.path.join(output_dir, 'plot_length_resolution.png'),
                     xlabel='True Length / m',
                     ylog=True,
                     )
     plot_correlation([combined_arr[0],combined_arr[1]],
-                    ['MostVisibleMuonInDetectorTrackLength', 'DeepLearning_MuonEntryPoint - DeepLearning_MuonExitPoint'],
-                    output='plot_correlation_length_{}.png'.format('DNN'),)
+                    ['MostVisibleMuonInDetectorTrackLength', 'DeepLearning_Entry_Exit_Point_diff'],
+                    output=os.path.join(output_dir, 'plot_length_correlation_{}.png'.format(dnn_label)),
+                    )
 
+def main():
+    parser = ArgumentParser()
+    parser.add_argument(
+        '-i', '--input',
+        type=str,
+        dest='input_file',
+        default='build/old_sim.txt',
+        help='input text file with the attributes')
+    parser.add_argument(
+        '-o', '--output',
+        type=str,
+        dest='output_dir',
+        default='1804_old_sim',
+        help='input text file with the attributes')
+    args = parser.parse_args()
+
+    script_folder = os.path.dirname(os.path.abspath(__file__))
+    build_path = os.path.join(script_folder, 'build')
+    if not os.path.isdir(build_path):
+        os.makedirs(build_path)
+
+    output_dir = os.path.join(build_path, args.output_dir)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    do_energy_plots(args.input_file, output_dir)
+    # do_length_plots(args.input_file, output_dir)
 
 if __name__ == '__main__':
-    # filename = 'new_list.txt'
-    filename = 'energy_list.txt'
-    do_energy_plots(filename)
-    # do_length_plots(filename)
-
+    main()

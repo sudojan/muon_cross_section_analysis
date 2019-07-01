@@ -1,5 +1,6 @@
 
 import os
+import gzip
 from icecube import icetray, dataio, dataclasses, recclasses, simclasses
 from I3Tray import I3Tray
 import numpy as np
@@ -74,6 +75,17 @@ def gather_information_of_frame(frame,
             frame_labels.append(frame['MMCTrackList'][0].Ec)
         else:
             frame_labels.append(0.)
+
+    num_pulses = 0
+    charge_total = 0
+    if 'InIceDSTPulses' in frame:
+        pulse_series = frame['InIceDSTPulses'].apply(frame)
+        for omkey in pulse_series.keys():
+            for pulse in pulse_series[omkey]:
+                num_pulses += 1
+                charge_total += pulse.charge
+        frame_labels.append(num_pulses)
+        frame_labels.append(charge_total)
 
     # get MC labels
     for feature in mc_label_names:
@@ -151,6 +163,7 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
     print('num frames: {}'.format(len(labels_list)))
 
     frame_labels_names = ['MMCTrackList_CenterEnergy',]
+    frame_labels_names += ['InIceDSTPulses_NumPulses', 'InIceDSTPulses_Qtot']
     frame_labels_names += mc_label_names
     frame_labels_names += dnn_double_names
 
@@ -171,7 +184,14 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
     # delete also from fram labelnames
     for idx in index_to_delete[::-1]:
         del frame_labels_names[idx]
-    np.savetxt(output_file, saving_arr, header=' '.join(frame_labels_names))
+
+    if output_file.endswith(".gz")
+        with gzip.open(output_file, 'w') as file:
+            np.savetxt(file, saving_arr, header=' '.join(frame_labels_names))
+    else:
+        with open(output_file, 'w') as file:
+            np.savetxt(file, saving_arr, header=' '.join(frame_labels_names))
+
 
 def main():
     parser = ArgumentParser()
@@ -179,13 +199,11 @@ def main():
         '-i', '--input',
         type=str,
         dest='input_file_dir',
-        default='/data/user/jsoedingrekso/muongun_crosssections/1904/step_7_dnn_reco/00000-00999/Level3.2_muongun_singlemuons_IC86.pass2.001904.000012.i3.bz2',
         help='input i3file or directory of i3files')
     parser.add_argument(
         '-o', '--output',
         type=str,
         dest='output_file',
-        default='feature_list.txt',
         help='output file with list of features')
     args = parser.parse_args()
 
