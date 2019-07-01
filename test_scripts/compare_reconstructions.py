@@ -1,5 +1,6 @@
 
 import os
+import gzip
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from matplotlib import lines
@@ -162,26 +163,32 @@ def plot_correlation(arr_list, label_list, output):
     plt.show()
 
 def do_energy_plots(filename, output_dir):
-    with open(filename) as file:
-        first_line = file.readline()
-        all_labels = first_line[1:].split()
+    if filename.endswith(".gz"):
+        with gzip.open(filename, 'r') as file:
+            first_line = file.readline().decode('utf-8')
+            all_labels = first_line[1:].split()
+            all_arr = np.genfromtxt(file)
+    else:
+        with open(filename) as file:
+            first_line = file.readline()
+            all_labels = first_line[1:].split()
+            all_arr = np.genfromtxt(file)
 
-    all_arr = np.genfromtxt(filename)
     pre_mask = np.ones(len(all_arr[:,0]), dtype=bool)
-    # do precuts if dnn is there
-    if 'DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty' in all_labels:
-        dnn_uncert = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty')]
-        pre_mask = pre_mask & dnn_uncert
-    if 'DeepLearning_PrimaryMuonEnergyEntry' in all_labels:
-        dnn_entry = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry')]
-        pre_mask = pre_mask & (dnn_entry > 3e3) & (dnn_entry < 1e6)
+    # # do precuts if dnn is there
+    # if 'DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty' in all_labels:
+    #     dnn_uncert = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry_log_uncertainty')]
+    #     pre_mask = pre_mask & dnn_uncert
+    # if 'DeepLearning_PrimaryMuonEnergyEntry' in all_labels:
+    #     dnn_entry = all_arr[:, all_labels.index('DeepLearning_PrimaryMuonEnergyEntry')]
+    #     pre_mask = pre_mask & (dnn_entry > 3e3) & (dnn_entry < 1e6)
 
     labels_to_extract = [
         'MMCTrackList_CenterEnergy',
         # 'MostVisibleMuonEnergyEntry',
-        # 'DeepLearning_PrimaryMuonEnergyEntry',
-        'SplineMPETruncatedEnergy_SPICEMie_ORIG_Muon',
-        'SplineMPEMuEXDifferential',
+        'DeepLearning_PrimaryMuonEnergyEntry',
+        # 'SplineMPETruncatedEnergy_SPICEMie_ORIG_Muon',
+        # 'SplineMPEMuEXDifferential',
     ]
 
     combined_arr = np.array([all_arr[:, all_labels.index(idx)][pre_mask] for idx in labels_to_extract])
@@ -291,7 +298,6 @@ def main():
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
-    print(args.input_file)
     do_energy_plots(args.input_file, output_dir)
     # do_length_plots(args.input_file, output_dir)
 
