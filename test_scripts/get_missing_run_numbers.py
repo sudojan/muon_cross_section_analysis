@@ -50,7 +50,7 @@ def main():
     file_list = generate_file_list(args.input_file_dir)
     run_numbers = retrieve_run_numbers(file_list)
 
-    max_run_number = arg.max_run_number
+    max_run_number = args.max_run_number
     if max_run_number is None:
         max_run_number = max(run_numbers)
     missing_run_numbers = [idx for idx in range(max_run_number) if idx not in run_numbers]

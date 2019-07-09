@@ -70,11 +70,11 @@ def gather_information_of_frame(frame,
 
     frame_labels = []
 
+    center_energy = 0.
     if 'MMCTrackList' in frame:
         if len(frame['MMCTrackList']) > 0:
-            frame_labels.append(frame['MMCTrackList'][0].Ec)
-        else:
-            frame_labels.append(0.)
+            center_energy = frame['MMCTrackList'][0].Ec
+    frame_labels.append(center_energy)
 
     num_pulses = 0
     charge_total = 0
@@ -84,8 +84,8 @@ def gather_information_of_frame(frame,
             for pulse in pulse_series[omkey]:
                 num_pulses += 1
                 charge_total += pulse.charge
-        frame_labels.append(num_pulses)
-        frame_labels.append(charge_total)
+    frame_labels.append(num_pulses)
+    frame_labels.append(charge_total)
 
     # get MC labels
     for feature in mc_label_names:
@@ -142,11 +142,14 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
         i3file = dataio.I3File(input_file)
         while(i3file.more()):
             frame = i3file.pop_physics()
+            # frame = i3file.pop_frame()
             # check if end of file
             if(frame == None):
                 break
             # check if its a gcd frame, daq frame or a physics frame
-            #if 'SplineMPE' not in frame:
+            if 'SplineMPE' not in frame:
+                continue
+            #if 'MCMuon' not in frame:
             #    continue
 
             labels_list.append(
@@ -175,6 +178,7 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
     frame_labels_names += truncated_recos
 
     saving_arr = np.array(labels_list)
+
     # delete coulumns, that have no entry
     index_to_delete = []
     for idx in range(len(saving_arr[0])):
@@ -185,7 +189,7 @@ def retrieve_data_out_of_i3_file(input_file_or_dir, output_file):
     for idx in index_to_delete[::-1]:
         del frame_labels_names[idx]
 
-    if output_file.endswith(".gz")
+    if output_file.endswith(".gz"):
         with gzip.open(output_file, 'w') as file:
             np.savetxt(file, saving_arr, header=' '.join(frame_labels_names))
     else:
