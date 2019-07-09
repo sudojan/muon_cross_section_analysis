@@ -1,17 +1,18 @@
 import os
+import json
 import numpy as np
 import pyPROPOSAL as pp
 from argparse import ArgumentParser
 
-def create_cross_section_calculators():
+def create_cross_section_calculators(path_to_inerpolation_tables='~/.local/share/PROPOSAL/tables'):
     mu = pp.particle.MuMinusDef.get()
     medium = pp.medium.Ice(1.0)
     cuts = pp.EnergyCutSettings(-1, -1)
     multiplier_all = 1.0
     lpm = True
     interpolation_def = pp.InterpolationDef()
-    interpolation_def.path_to_tables = "~/.local/share/PROPOSAL/tables"
-    interpolation_def.path_to_tables_readonly = "~/.local/share/PROPOSAL/tables"
+    interpolation_def.path_to_tables = path_to_inerpolation_tables
+    interpolation_def.path_to_tables_readonly = path_to_inerpolation_tables
 
     brems = pp.crosssection.BremsInterpolant(
                 pp.parametrization.bremsstrahlung.KelnerKokoulinPetrukhin(
@@ -60,41 +61,23 @@ def calculate_dedx(cs_calc_list, energies):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument(
-        '-i', '--emin',
-        type=float,
-        dest='energy_min_log',
-        default=4,
-        help='log10 of minimum energy in MeV for dEdx')
-    parser.add_argument(
-        '-f', '--emax',
-        type=float,
-        dest='energy_max_log',
-        default=11,
-        help='log10 of maximum energy in MeV for dEdx')
-    parser.add_argument(
-        '-n', '--nenergies',
-        type=int,
-        dest='num_energies',
-        default=100,
-        help='number of energies to evaluate for dEdx')
+    parser.add_argument('-f','--file',
+                        type=str,
+                        dest='settings_file',
+                        default="build/settings.json",
+                        help='json file containing the settings')
     args = parser.parse_args()
 
-    energies = np.logspace(args.energy_min_log, args.energy_max_log, args.num_energies)
+    with open(args.settings_file) as file:
+        settings_dict = json.load(file)
 
-    script_folder = os.path.dirname(os.path.abspath(__file__))
-    build_folder = os.path.join(script_folder, 'build')
-    if not os.path.isdir(build_folder):
-        os.makedirs(build_folder)
-
-    data_filename_all = os.path.join(build_folder, 'data_dedx_all_cross_sections.txt')
-    data_filename_sum = os.path.join(build_folder, 'data_dedx_sum.txt')
-
-    cs_calc_list = create_cross_section_calculators()
-    dedx_arr = calculate_dedx(cs_calc_list, energies)
+    cs_calc_list = create_cross_section_calculators(settings_dict['path_to_inerpolation_tables'])
+    tmp_arr = np.array(settings_dict['dedx_energies'])
+    dedx_arr = calculate_dedx(cs_calc_list, tmp_arr)
     dedx_sum = np.sum(dedx_arr, axis=1)
-    np.savetxt(data_filename_all, dedx_arr)
-    np.savetxt(data_filename_sum, dedx_sum)
+
+    np.savetxt(settings_dict['dedx_data_filename_all'], dedx_arr)
+    np.savetxt(settings_dict['dedx_data_filename_sum'], dedx_sum)
 
 if __name__ == '__main__':
     main()

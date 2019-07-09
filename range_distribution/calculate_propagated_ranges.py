@@ -1,9 +1,11 @@
 import os
+import json
 import numpy as np
 from tqdm import tqdm
 import pyPROPOSAL as pp
+from argparse import ArgumentParser
 
-def create_propagator():
+def create_propagator(path_to_inerpolation_tables='~/.local/share/PROPOSAL/tables'):
     mu_def = pp.particle.MuMinusDef.get()
     geometry = pp.geometry.Sphere(pp.Vector3D(), 1.e20, 0.0)
     ecut = 500
@@ -22,8 +24,8 @@ def create_propagator():
     detector = geometry
 
     interpolation_def = pp.InterpolationDef()
-    interpolation_def.path_to_tables = "~/.local/share/PROPOSAL/tables"
-    interpolation_def.path_to_tables_readonly = "~/.local/share/PROPOSAL/tables"
+    interpolation_def.path_to_tables = path_to_inerpolation_tables
+    interpolation_def.path_to_tables_readonly = path_to_inerpolation_tables
 
     return pp.Propagator(mu_def, [sector_def], detector, interpolation_def)
 
@@ -44,19 +46,28 @@ def propagate(prop, energy, oversampling):
 
     return muon_ranges
 
-def calc_ranges(energies, oversampling):
-    ranges = np.empty((len(energies), oversampling))
-    prop = create_propagator()
-    for jdx in tqdm(range(len(energies))):
-        ranges[jdx] = propagate(prop, energies[jdx], oversampling)
-    return ranges
 
 def main():
-    energies = np.logspace(4, 11, 10)
+    parser = ArgumentParser()
+    parser.add_argument('-f','--file',
+                        type=str,
+                        dest='settings_file',
+                        default="build/settings.json",
+                        help='json file containing the settings')
+    args = parser.parse_args()
+
+    with open(args.settings_file) as file:
+        settings_dict = json.load(file)
+
     pp.RandomGenerator.get().set_seed(1234)
-    data_filename = 'build/dedx_data_range.txt'
-    ranges = calc_ranges(energies, oversampling=100)
-    np.savetxt(data_filename, ranges)
+
+    ranges = np.empty((settings_dict['prop_n_muon_energy_bins'], settings_dict['prop_oversampling']))
+    prop = create_propagator(settings_dict['path_to_inerpolation_tables'])
+    for jdx in tqdm(range(settings_dict['prop_n_muon_energy_bins'])):
+        ranges[jdx] = propagate(prop,
+                                settings_dict['prop_energy_bin_mids'][jdx],
+                                settings_dict['prop_oversampling'])
+    np.savetxt(settings_dict['prop_data_ranges'], ranges)
 
 if __name__ == '__main__':
     main()

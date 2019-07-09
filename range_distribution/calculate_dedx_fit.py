@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -117,6 +118,7 @@ def plot_dedx(energies, dedx_arr, fit_params, plot_name):
     ax1.set_yscale('log')
     ax1.legend()
     ax1.set_ylabel(r'$\langle \mathrm{d}E/\mathrm{d}x \rangle$')
+
     ax2.plot(energies, dedx_sum/dedx_sum, label=r'True')
     ax2.plot(energies, fit_line/dedx_sum, label=r'fit')
     ax2.set_xscale('log')
@@ -132,46 +134,27 @@ def plot_dedx(energies, dedx_arr, fit_params, plot_name):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument(
-        '-i', '--emin',
-        type=float,
-        dest='energy_min_log',
-        default=4,
-        help='log10 of minimum energy in MeV for dEdx')
-    parser.add_argument(
-        '-f', '--emax',
-        type=float,
-        dest='energy_max_log',
-        default=11,
-        help='log10 of maximum energy in MeV for dEdx')
-    parser.add_argument(
-        '-n', '--nenergies',
-        type=int,
-        dest='num_energies',
-        default=100,
-        help='number of energies to evaluate for dEdx')
+    parser.add_argument('-f','--file',
+                        type=str,
+                        dest='settings_file',
+                        default="build/settings.json",
+                        help='json file containing the settings')
     args = parser.parse_args()
 
-    energies = np.logspace(args.energy_min_log, args.energy_max_log, args.num_energies)
+    with open(args.settings_file) as file:
+        settings_dict = json.load(file)
 
-    script_folder = os.path.dirname(os.path.abspath(__file__))
-    build_folder = os.path.join(script_folder, 'build')
-    if not os.path.isdir(build_folder):
-        os.makedirs(build_folder)
-    data_filename_all = os.path.join(build_folder, 'data_dedx_all_cross_sections.txt')
+    dedx_arr = np.genfromtxt(settings_dict['dedx_data_filename_all'])
+    dedx_sum = np.genfromtxt(settings_dict['dedx_data_filename_sum'])
+    tmp_arr = np.array(settings_dict['dedx_energies'])
 
-    dedx_arr = np.genfromtxt(data_filename_all)
-    dedx_sum = np.sum(dedx_arr, axis=1)
     def func(x, a, b):
         return a + b*x
-    fit_params = curve_fit(func, energies, dedx_sum, sigma=dedx_sum)[0]
-    fit_params_filename = os.path.join(build_folder, 'data_dedx_fitparams.txt')
-    np.savetxt(fit_params_filename, fit_params)
-    plot_name = os.path.join(build_folder, 'plot_dedx_test_fitter.png')
-    test_fitter(energies, dedx_arr, plot_name)
-    plot_name = os.path.join(build_folder, 'plot_dedx.png')
-    plot_dedx(energies, dedx_arr, fit_params, plot_name)
+    fit_params = curve_fit(func, tmp_arr, dedx_sum, sigma=dedx_sum)[0]
+    np.savetxt(settings_dict['dedx_data_fitparams'], fit_params)
 
+    test_fitter(tmp_arr, dedx_arr, settings_dict['dedx_plot_test_fitter'])
+    plot_dedx(tmp_arr, dedx_arr, fit_params, settings_dict['dedx_plot'])
 
 if __name__ == '__main__':
     main()
