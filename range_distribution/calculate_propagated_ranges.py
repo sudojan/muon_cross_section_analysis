@@ -5,7 +5,10 @@ from tqdm import tqdm
 import pyPROPOSAL as pp
 from argparse import ArgumentParser
 
-def create_propagator(path_to_inerpolation_tables='~/.local/share/PROPOSAL/tables'):
+def create_propagator(path_to_inerpolation_tables='~/.local/share/PROPOSAL/tables',
+                      brems_param_name='BremsKelnerKokoulinPetrukhin',
+                      epair_param_name='EpairKelnerKokoulinPetrukhin',
+                      photo_param_name='PhotoAbramowiczLevinLevyMaor97'):
     mu_def = pp.particle.MuMinusDef.get()
     geometry = pp.geometry.Sphere(pp.Vector3D(), 1.e20, 0.0)
     ecut = 500
@@ -20,6 +23,23 @@ def create_propagator(path_to_inerpolation_tables='~/.local/share/PROPOSAL/table
     sector_def.crosssection_defs.epair_def.lpm_effect = True
     sector_def.do_continuous_randomization = False
     sector_def.do_exact_time_calculation = False
+    sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsFactory.get().get_enum_from_str(brems_param_name)
+    sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairFactory.get().get_enum_from_str(epair_param_name)
+    sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoFactory.get().get_enum_from_str(photo_param_name)
+    # if wqs == 'high_cross_sections':
+    #     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.BezrukovBugaev
+    #     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsParametrization.SandrockSoedingreksoRhode
+    #     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairParametrization.KelnerKokoulinPetrukhin
+    # elif wqs == 'low_cross_sections':
+    #     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor91
+    #     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsParametrization.PetrukhinShestakov
+    #     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairParametrization.SandrockSoedingreksoRhode
+    # elif wqs == 'baseline':
+    #     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor97
+    #     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsParametrization.KelnerKokoulinPetrukhin
+    #     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairParametrization.KelnerKokoulinPetrukhin
+    # else:
+    #     raise KeyError('wqs must be low_cross_sections, high_cross_sections or baseline')
 
     detector = geometry
 
@@ -62,7 +82,10 @@ def main():
     pp.RandomGenerator.get().set_seed(1234)
 
     ranges = np.empty((settings_dict['prop_n_muon_energy_bins'], settings_dict['prop_oversampling']))
-    prop = create_propagator(settings_dict['path_to_inerpolation_tables'])
+    prop = create_propagator(settings_dict['path_to_inerpolation_tables'],
+                            settings_dict['brems_param_name'],
+                            settings_dict['epair_param_name'],
+                            settings_dict['photo_param_name'],)
     for jdx in tqdm(range(settings_dict['prop_n_muon_energy_bins'])):
         ranges[jdx] = propagate(prop,
                                 settings_dict['prop_energy_bin_mids'][jdx],
