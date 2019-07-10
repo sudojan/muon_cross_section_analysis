@@ -26,20 +26,6 @@ def create_propagator(path_to_inerpolation_tables='~/.local/share/PROPOSAL/table
     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsFactory.get().get_enum_from_str(brems_param_name)
     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairFactory.get().get_enum_from_str(epair_param_name)
     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoFactory.get().get_enum_from_str(photo_param_name)
-    # if wqs == 'high_cross_sections':
-    #     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.BezrukovBugaev
-    #     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsParametrization.SandrockSoedingreksoRhode
-    #     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairParametrization.KelnerKokoulinPetrukhin
-    # elif wqs == 'low_cross_sections':
-    #     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor91
-    #     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsParametrization.PetrukhinShestakov
-    #     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairParametrization.SandrockSoedingreksoRhode
-    # elif wqs == 'baseline':
-    #     sector_def.crosssection_defs.photo_def.parametrization = pp.parametrization.photonuclear.PhotoParametrization.AbramowiczLevinLevyMaor97
-    #     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsParametrization.KelnerKokoulinPetrukhin
-    #     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairParametrization.KelnerKokoulinPetrukhin
-    # else:
-    #     raise KeyError('wqs must be low_cross_sections, high_cross_sections or baseline')
 
     detector = geometry
 
