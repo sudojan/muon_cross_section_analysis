@@ -4,6 +4,15 @@ import numpy as np
 import os
 from argparse import ArgumentParser
 
+def create_bin_edges_and_mids(low, high, nbins, logscale):
+    if logscale:
+        bins_tmp = np.logspace(np.log10(low), np.log10(high), num = 2*nbins + 1)
+    else:
+        bins_tmp = np.linspace(low, high, num = 2*nbins + 1)
+    bin_edges = bins_tmp[::2]
+    bin_mids = bins_tmp[1::2]
+    return bin_edges, bin_mids
+
 
 def create_settings_dict(cross_section_type):
     set_dict = {}
@@ -45,8 +54,8 @@ def create_settings_dict(cross_section_type):
     set_dict['dedx_muon_energy_min'] = 1e4 # MeV
     set_dict['dedx_muon_energy_max'] = 1e11 # MeV
     tmp_arr = np.logspace(np.log10(set_dict['dedx_muon_energy_min']),
-                                   np.log10(set_dict['dedx_muon_energy_max']),
-                                   set_dict['dedx_n_muons'])
+                          np.log10(set_dict['dedx_muon_energy_max']),
+                          set_dict['dedx_n_muons'])
     set_dict['dedx_energies'] = tmp_arr.tolist()
     set_dict['dedx_data_filename_all'] = os.path.join(build_folder, 'data_dedx_all_cross_sections.txt')
     set_dict['dedx_data_filename_sum'] = os.path.join(build_folder, 'data_dedx_sum_cross_sections.txt')
@@ -57,20 +66,29 @@ def create_settings_dict(cross_section_type):
     set_dict['dedx_plot'] = os.path.join(build_folder, 'plot_dedx.png')
 
     # step3 propagate muons for range distribution
-    set_dict['prop_oversampling'] = 100
-    set_dict['prop_n_muon_energy_bins'] = 10
+    set_dict['prop_oversampling'] = 2000
+    set_dict['prop_n_muon_energy_bins'] = 100
     set_dict['prop_muon_energy_min'] = 1e4 # MeV
     set_dict['prop_muon_energy_max'] = 1e11 # MeV
-    tmp_arr = np.logspace(np.log10(set_dict['prop_muon_energy_min']),
-                          np.log10(set_dict['prop_muon_energy_max']),
-                          2 * set_dict['prop_n_muon_energy_bins'] + 1)
-    set_dict['prop_energy_bin_edges'] = tmp_arr[::2].tolist()
-    set_dict['prop_energy_bin_mids'] = tmp_arr[1::2].tolist()
+    bin_edges, bin_mids = create_bin_edges_and_mids(set_dict['prop_muon_energy_min'],
+                                                    set_dict['prop_muon_energy_max'],
+                                                    set_dict['prop_n_muon_energy_bins'],
+                                                    logscale=True)
+    set_dict['prop_energy_bin_edges'] = bin_edges.tolist()
+    set_dict['prop_energy_bin_mids'] = bin_mids.tolist()
     set_dict['prop_data_ranges'] = os.path.join(build_folder, 'data_prop_ranges.txt')
 
     # step 4 plot range
     set_dict['prop_plot_ranges'] = os.path.join(build_folder, 'plot_range_distribution.png')
-    set_dict['prop_n_range_bins'] = 11
+    set_dict['range_nbins'] = 31
+    set_dict['range_min'] = 1e3 # cm
+    set_dict['range_max'] = 1e7 # cm
+    bin_edges, bin_mids = create_bin_edges_and_mids(set_dict['range_min'],
+                                                    set_dict['range_max'],
+                                                    set_dict['range_nbins'],
+                                                    logscale=True)
+    set_dict['range_bin_edges'] = bin_edges.tolist()
+    set_dict['range_bin_mids'] = bin_mids.tolist()
 
     setting_file_name = '{}_settings.json'.format(cross_section_type)
     with open(os.path.join(set_dict['build_path'], setting_file_name), 'w') as file:
