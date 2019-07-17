@@ -20,20 +20,22 @@ def generate_file_list(input_file_or_dir):
 
 def get_init_energy_of_i3files(input_file_list):
     energies = []
+    tmp_minor_id = -1
 
     for input_file in tqdm(input_file_list):
         i3file = dataio.I3File(input_file)
         while(i3file.more()):
-            frame = i3file.pop_daq()
+            frame = i3file.pop_frame()
             # check if end of file
             if(frame == None):
                 break
             # check if its a gcd frame, daq frame
             if 'MCMuon' not in frame:
-                print('no MCMuon')
                 continue
 
-            energies.append(frame['MCMuon'].energy)
+            if frame['MCMuon'].minor_id != tmp_minor_id:
+                tmp_minor_id = frame['MCMuon'].minor_id
+                energies.append(frame['MCMuon'].energy)
 
     return energies
 
@@ -63,10 +65,10 @@ def main():
 
     if output_file.endswith(".gz"):
         with gzip.open(output_file, 'w') as file:
-            np.savetxt(file, saving_arr)
+            np.savetxt(file, energies)
     else:
         with open(output_file, 'w') as file:
-            np.savetxt(file, saving_arr)
+            np.savetxt(file, energies)
 
 
 if __name__ == '__main__':
