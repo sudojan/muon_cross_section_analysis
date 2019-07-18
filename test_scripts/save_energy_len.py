@@ -37,10 +37,15 @@ def get_energy_len_of_i3files(input_file_list):
             # check if end of file
             if(frame == None):
                 break
+
             # check for required keys in frame
-            for fkey in required_frame_keys
+            skip_frame = False
+            for fkey in required_frame_keys:
                 if fkey not in frame:
-                    continue
+                    skip_frame = True
+                    break
+            if skip_frame:
+                continue
 
             energies_mc.append(frame['LabelsDeepLearning']['MostVisibleMuonEnergyEntry'])
             lengths_mc.append(frame['LabelsDeepLearning']['MostVisibleMuonEnergyEntry'])
