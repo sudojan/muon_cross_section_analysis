@@ -8,6 +8,8 @@ from tqdm import tqdm
 from glob import glob
 from scipy.spatial import Delaunay
 
+SCRIPT_FOLDER = os.path.dirname(os.path.abspath(__file__))
+
 def generate_file_list(input_file_or_dir):
     if os.path.isfile(input_file_or_dir):
         return [input_file_or_dir]
@@ -54,12 +56,12 @@ def points_in_detector(delaunay, positions):
     return delaunay.find_simplex(positions) >= 0
 
 
-def retrieve_energyloss_data(input_file_or_dir, output_file):
-    labels_list = []
+def get_losses_of_i3files(file_list):
+    losses_list = []
     longest_event = 0
     miliped_key = 'SplineMPE_MillipedeHighEnergyMIE'
-    file_list = generate_file_list(input_file_or_dir)
     delaunay = create_icecube_delaunay()
+
     for input_file in tqdm(file_list):
         i3file = dataio.I3File(input_file)
         while(i3file.more()):
@@ -80,14 +82,13 @@ def retrieve_energyloss_data(input_file_or_dir, output_file):
                         event_losses_inside[frame_idx] = loss_bin.energy
                         frame_idx += 1
 
-            labels_list.append(event_losses_inside)
+            losses_list.append(event_losses_inside)
             if np.count_nonzero(event_losses_inside) > longest_event:
                 longest_event = np.count_nonzero(event_losses_inside)
 
-    print('num events: ', len(labels_list))
+    print('num events: ', len(losses_list))
     print('most nonzero bins: ', longest_event)
-    saving_arr = np.array(labels_list)
-    np.savetxt(output_file, saving_arr, header=miliped_key)
+    return losses_list
 
 def main():
     parser = ArgumentParser()
@@ -104,13 +105,20 @@ def main():
         help='output file with list of features')
     args = parser.parse_args()
 
-    script_folder = os.path.dirname(os.path.abspath(__file__))
     build_folder = os.path.join(script_folder, 'build')
     if not os.path.isdir(build_folder):
         os.makedirs(build_folder)
     output_file = os.path.join(build_folder, args.output_file)
 
-    retrieve_energyloss_data(args.input_file_dir, output_file)
+    file_list = generate_file_list(args.input_file_dir)
+    datas = get_losses_of_i3files(file_list)
+
+    if output_file.endswith(".gz"):
+        with gzip.open(output_file, 'w') as file:
+            np.savetxt(file, datas)
+    else:
+        with open(output_file, 'w') as file:
+            np.savetxt(file, datas)
 
 
 if __name__ == '__main__':

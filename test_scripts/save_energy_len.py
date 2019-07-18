@@ -52,6 +52,8 @@ def get_energy_len_of_i3files(input_file_list):
             energies_reco.append(frame['DeepLearning_PrimaryMuonEnergyEntry'].value)
             tmp = frame['DeepLearning_MuonEntryPoint'] - frame['DeepLearning_MuonExitPoint']
             lengths_reco.append(tmp.magnitude)
+    
+    print('num frames: {}'.format(len(energies_mc)))
 
     return [energies_mc, energies_reco, lengths_mc, lengths_reco]
 
@@ -76,8 +78,6 @@ def main():
 
     file_list = generate_file_list(args.input_file_dir)
     datas = get_energy_len_of_i3files(file_list)
-
-    print('num frames: {}'.format(len(datas)))
 
     if output_file.endswith(".gz"):
         with gzip.open(output_file, 'w') as file:
