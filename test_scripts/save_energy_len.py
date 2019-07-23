@@ -48,11 +48,11 @@ def get_energy_len_of_i3files(input_file_list):
                 continue
 
             energies_mc.append(frame['LabelsDeepLearning']['MostVisibleMuonEnergyEntry'])
-            lengths_mc.append(frame['LabelsDeepLearning']['MostVisibleMuonEnergyEntry'])
+            lengths_mc.append(frame['LabelsDeepLearning']['MostVisibleMuonInDetectorTrackLength'])
             energies_reco.append(frame['DeepLearning_PrimaryMuonEnergyEntry'].value)
             tmp = frame['DeepLearning_MuonEntryPoint'] - frame['DeepLearning_MuonExitPoint']
             lengths_reco.append(tmp.magnitude)
-    
+
     print('num frames: {}'.format(len(energies_mc)))
 
     return [energies_mc, energies_reco, lengths_mc, lengths_reco]

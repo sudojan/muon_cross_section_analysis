@@ -59,8 +59,7 @@ def plot_range_distribution(energies_prop_bin_edges,
     fig.colorbar(im, cax=cbar_ax)
 
     # fig.tight_layout()
-    fig.savefig(output_file)
-    plt.show()
+    fig.savefig(output_file, bbox_inches='tight', pad_inches=0.02, dpi=300)
 
 
 def main():
