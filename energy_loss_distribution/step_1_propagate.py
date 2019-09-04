@@ -19,25 +19,35 @@ def random_powerlaw_sampler(xlow, xhig, num, gamma=3.7):
     if gamma == 1:
         return np.exp(u * np.log(xhig / xlow)) * xlow
     else:
-        radicant = (u * (xhig**(1. - gamma) - xlow**(1. - gamma)) +
-                    xlow**(1. - gamma))
+        radicant = (u * (xhig**(1. - gamma) - xlow**(1. - gamma)) + xlow**(1. - gamma))
         return radicant**(1. / (1. - gamma))
 
 def create_propagator(path_to_interpolation_tables="~/.local/share/PROPOSAL/tables",
                       brems_multiplier=1.0,
                       brems_param_name='BremsKelnerKokoulinPetrukhin',
                       epair_param_name='EpairKelnerKokoulinPetrukhin',
-                      photo_param_name='PhotoAbramowiczLevinLevyMaor97'):
+                      photo_param_name='PhotoAbramowiczLevinLevyMaor97',
+                      ecut=500,
+                      vcut=-1,
+                      lpm=True,
+                      mupair_interaction=False,
+                      mupair_singlemuons=False,
+                      weak_interaction=False):
     particle_def=pp.particle.MuMinusDef.get()
     geometry = pp.geometry.Sphere(pp.Vector3D(), 1.e20, 0.0)
 
     sector_def = pp.SectorDefinition()
-    sector_def.cut_settings = pp.EnergyCutSettings(500, -1)
+    sector_def.cut_settings = pp.EnergyCutSettings(ecut, vcut)
     sector_def.medium = pp.medium.Ice(1.0)
     sector_def.geometry = geometry
     sector_def.scattering_model = pp.scattering.ScatteringModel.NoScattering
-    sector_def.crosssection_defs.brems_def.lpm_effect = False
-    sector_def.crosssection_defs.epair_def.lpm_effect = False
+    sector_def.do_continuous_randomization = False
+    sector_def.do_exact_time_calculation = False
+    sector_def.crosssection_defs.mupair_def.mupair_enable = mupair_interaction
+    sector_def.crosssection_defs.mupair_def.particle_output = mupair_singlemuons
+    sector_def.crosssection_defs.weak_def.weak_enable = weak_interaction
+    sector_def.crosssection_defs.brems_def.lpm_effect = lpm
+    sector_def.crosssection_defs.epair_def.lpm_effect = lpm
     sector_def.crosssection_defs.brems_def.multiplier = brems_multiplier
     sector_def.crosssection_defs.brems_def.parametrization = pp.parametrization.bremsstrahlung.BremsFactory.get().get_enum_from_str(brems_param_name)
     sector_def.crosssection_defs.epair_def.parametrization = pp.parametrization.pairproduction.EpairFactory.get().get_enum_from_str(epair_param_name)
@@ -60,6 +70,9 @@ def classify_secondaries(secondaries, len_bins):
     photo_energies = []
     decay_energies = []
     binned_energies = []
+    mupair_secondary_energies = []
+    mupair_muon_energies = []
+    weak_energies = []
 
     if len(secondaries) == 1:
         # only one interaction
@@ -80,19 +93,28 @@ def classify_secondaries(secondaries, len_bins):
 
     all_energies = []
     all_lengths = []
+    is_single_muon_from_mupair = False
     for sec in secondaries:
-
-        if sec.id == pp.particle.Data.DeltaE:
-            ioniz_energies.append(sec.energy)
-        elif sec.id == pp.particle.Data.Epair:
+        if sec.id == pp.particle.Data.Epair:
             epair_energies.append(sec.energy)
         elif sec.id == pp.particle.Data.Brems:
             brems_energies.append(sec.energy)
+        elif sec.id == pp.particle.Data.DeltaE:
+            ioniz_energies.append(sec.energy)
         elif sec.id == pp.particle.Data.NuclInt:
             photo_energies.append(sec.energy)
+        elif sec.id == pp.particle.Data.MuPair:
+            mupair_secondary_energies.append(sec.energy)
         elif sec.id == pp.particle.Data.Particle:
+            # mupair particle output
+            if sec.particle_def == pp.particle.MuMinusDef.get():
+                mupair_muon_energies.append(sec.energy)
+                is_single_muon_from_mupair = True
+            elif sec.particle_def == pp.particle.MuPlusDef.get():
+                mupair_muon_energies.append(sec.energy)
+                is_single_muon_from_mupair = True
             # decay
-            if sec.particle_def == pp.particle.EMinusDef.get():
+            elif sec.particle_def == pp.particle.EMinusDef.get():
                 decay_energies.append(sec.energy)
             elif sec.particle_def == pp.particle.EPlusDef.get():
                 decay_energies.append(sec.energy)
@@ -101,12 +123,20 @@ def classify_secondaries(secondaries, len_bins):
                 continue
             else:
                 print("unknown decay particle")
-                print(sec.id)
+                print(sec.id, sec.particle_def)
+        elif sec.id == pp.particle.Data.WeakInt:
+            weak_energies.append(sec.energy)
         else:
             print("unknown secondary type")
             print(sec.id)
 
         if do_len_binning:
+            if is_single_muon_from_mupair:
+                # the single muons will further be propagated
+                # therefore don't count them in the binned energy losses
+                is_single_muon_from_mupair = False
+                continue
+
             posi = np.array([sec.position.x,
                              sec.position.y,
                              sec.position.z])
@@ -122,39 +152,85 @@ def classify_secondaries(secondaries, len_bins):
         # add the single cascade
         binned_energies.append(secondaries[0].energy)
 
-    return ioniz_energies, epair_energies, brems_energies, photo_energies, decay_energies, binned_energies
+    secondaries = [epair_energies,
+                   brems_energies,
+                   ioniz_energies,
+                   photo_energies,
+                   decay_energies,
+                   mupair_secondary_energies,
+                   mupair_muon_energies,
+                   weak_energies,
+                   binned_energies
+    ]
+    return secondaries
+
+def prop_particle(prop, energy, max_propagation_len=1e20):
+    prop.particle.position = pp.Vector3D(0, 0, 0)
+    prop.particle.direction = pp.Vector3D(1, 0, 0)
+    prop.particle.propagated_distance = 0
+    prop.particle.energy = energy
+    prop.particle.time = 0
+
+    return prop.propagate(max_propagation_len)
 
 
 def propagate_and_return_secondary_hist(prop, muon_energies, propagation_lengths, loss_bin_edges, len_bins):
-    n_sec_types = 6
-    secondary_bins = np.zeros((n_sec_types, len(loss_bin_edges)-1))
+    n_sec_types = 9
+    nbins = len(loss_bin_edges)-1
+    secondary_bins = np.zeros((n_sec_types, nbins))
+    secondary_errs = np.zeros((n_sec_types, nbins))
 
     for idx in tqdm(range(len(muon_energies))):
-        prop.particle.position = pp.Vector3D(0, 0, 0)
-        prop.particle.direction = pp.Vector3D(0, 0, -1)
-        prop.particle.propagated_distance = 0
-        prop.particle.energy = muon_energies[idx]
-
-        secondaries = prop.propagate(propagation_lengths[idx])
+        secondaries = prop_particle(prop, muon_energies[idx], propagation_lengths[idx])
 
         if len(secondaries) < 1:
-            print("no secondaries")
             continue
 
-        secondaries_energies = classify_secondaries(secondaries, len_bins)
+        sec_energies = classify_secondaries(secondaries, len_bins)
+
+        # midx = 0
+        sum_2nd_mus = []
+        while(len(sec_energies[5]) > 0):
+            # midx += 1
+            # print('muon iter: {}'.format(midx))
+            for jdx in sec_energies[5]:
+                secs2 = prop_particle(prop, jdx, propagation_lengths[idx])
+                if len(secs2) < 1:
+                    continue
+                sec_energies2 = classify_secondaries(secs2, len_bins)
+                for kdx in range(len(sec_energies2)):
+                    if kdx != 5:
+                        sec_energies[kdx].extend(sec_energies2[kdx])
+                        sum_2nd_mus.extend(sec_energies2[kdx])
+                    else:
+                        sec_energies[kdx] = sec_energies2[kdx]
+            if len(sec_energies[5]) > 0:
+                print('nmuons left: {}'.format(sec_energies[5]))
+        # del sec_energies[5]
+        sec_energies[5] = sum_2nd_mus
+
 
         for jdx in range(n_sec_types):
-            secondary_bins_tmp, _ = np.histogram(secondaries_energies[jdx],
-                                                bins=loss_bin_edges,
-                                                density=False)
             # norm to 100 m propagated distance
-            secondary_bins[jdx] += secondary_bins_tmp * 1e4 / propagation_lengths[idx]
+            weights = 1e4 / propagation_lengths[idx] * np.ones(len(sec_energies[jdx]))
+            secondary_bins_tmp = np.histogram(sec_energies[jdx],
+                                                bins=loss_bin_edges,
+                                                weights=weights,
+                                                density=False)[0]
+            sec_err_tmp = np.histogram(sec_energies[jdx],
+                                                bins=loss_bin_edges,
+                                                weights=weights**2,
+                                                density=False)[0]
+            secondary_bins[jdx] += secondary_bins_tmp
+            secondary_errs[jdx] += sec_err_tmp
+    
+    secondary_errs = np.sqrt(secondary_errs)
 
     # returns histogramed secondaries per muon per 100 meter
-    return secondary_bins / float(len(muon_energies))
+    return secondary_bins / float(len(muon_energies)), secondary_errs / float(len(muon_energies))
 
 
-def create_secondaries_hist(settings_dict, style):
+def create_secondaries_hist(settings_dict, overwrite, style):
     if not os.path.isdir(settings_dict["step01_path_{}".format(style)]):
         os.mkdir(settings_dict["step01_path_{}".format(style)])
     if not os.path.isdir(settings_dict["step01_path_{}_data".format(style)]):
@@ -192,25 +268,31 @@ def create_secondaries_hist(settings_dict, style):
 
 
         bin_file_name = settings_dict["step01_file_{}_data".format(style)].format(brems_multiplier)
-        if os.path.isfile(bin_file_name):
+        err_file_name = settings_dict["step01_file_{}_err_data".format(style)].format(brems_multiplier)
+        if os.path.isfile(bin_file_name) and os.path.isfile(err_file_name) and not overwrite:
             continue
 
         prop = create_propagator(settings_dict["path_interpolation_tables_{}".format(style)],
                                 brems_multiplier)
-        sec_bins = propagate_and_return_secondary_hist(prop,
-                                                    muon_energies,
-                                                    propagation_lengths,
-                                                    loss_bin_edges,
-                                                    len_bins)
+        sec_bins, sec_errs = propagate_and_return_secondary_hist(prop,
+                                                                muon_energies,
+                                                                propagation_lengths,
+                                                                loss_bin_edges,
+                                                                len_bins)
         np.savetxt(bin_file_name, sec_bins)
+        np.savetxt(err_file_name, sec_errs)
 
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('-f','--file',
+    parser.add_argument('-c', '--config',
                         type=str,
                         dest='settings_file', default="build/settings.json",
                         help='json file containing the settings')
+    parser.add_argument('-f', '--force',
+                        type=bool,
+                        dest='overwrite', default=False,
+                        help='recalculate histogram and propagate')
     args = parser.parse_args()
 
     pp.RandomGenerator.get().set_seed(1234)
@@ -224,9 +306,9 @@ def main():
         os.mkdir(settings_dict["step01_path"])
 
     # simulate with different multiplier to param bin diffs
-    create_secondaries_hist(settings_dict=settings_dict, style="buildup")
+    create_secondaries_hist(settings_dict, args.overwrite, style="buildup")
     # create test multiplier datasets
-    # create_secondaries_hist(settings_dict=settings_dict, style="testing")
+    # create_secondaries_hist(settings_dict, overwrite, style="testing")
 
 
 if __name__ == "__main__":

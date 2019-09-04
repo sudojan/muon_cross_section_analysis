@@ -38,7 +38,7 @@ def create_settings_dict():
     settings_dict["brems_multiplier_testing_arr"] = brems_multiplier_test_arr.tolist()
 
     # set muon energies between its randomly sampled in log10 (power law)
-    settings_dict["n_muons"] = int(1e5)
+    settings_dict["n_muons"] = int(1e3)
     settings_dict["n_energy_loss_bins"] = 20
     settings_dict["muon_energy_min"] = 1e7 # MeV
     settings_dict["muon_energy_max"] = 3e7 # MeV
@@ -61,12 +61,17 @@ def create_settings_dict():
     settings_dict["bin_len_step"] = 1500. # cm
 
     # set secondary types
-    settings_dict["secondary_types"] = ["Ionization",
-                                        "Pair Production",
-                                        "Bremsstrahlung",
-                                        "Photonuclear",
-                                        "Decay Electron",
-                                        "Binned Track"]
+    settings_dict["secondary_types"] = [
+        "Pair Production",
+        "Bremsstrahlung",
+        "Ionization",
+        "Photonuclear",
+        "Decay Electron",
+        'MuPair',
+        'MuPair_secondaries',
+        'Weak'
+        "Binned Track",
+    ]
 
     # set path to interpolation tables
     settings_dict["path_interpolation_tables_buildup"] = "~/.local/share/PROPOSAL/tables"
@@ -96,6 +101,8 @@ def create_settings_dict():
                                                                         "losses_bins_{:.4}.txt")
         settings_dict["step01_file_{}_plots".format(idx)] = os.path.join(settings_dict["step01_path_{}_plots".format(idx)],
                                                                          "losses_spectrum_{:.4}.pdf")
+        settings_dict["step01_file_{}_err_data".format(idx)] = os.path.join(settings_dict["step01_path_{}_data".format(idx)],
+                                                                        "losses_err_{:.4}.txt")
 
     # set directory for step 02
     settings_dict["step02_path"] = os.path.join(settings_dict["build_path"],
