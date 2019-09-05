@@ -11,7 +11,9 @@ def create_settings_dict():
     multiplier_min = 0.5
     multiplier_max = 1.5
     multiplier_step = 0.1
+    settings_dict['multiplier_build_step'] = 0.1
     brems_multiplier_build_arr = np.arange(multiplier_min, multiplier_max+1e-9, multiplier_step)
+    settings_dict['n_buildup_multiplier'] = len(brems_multiplier_build_arr)
     settings_dict["brems_multiplier_buildup_arr"] = brems_multiplier_build_arr.tolist()
 
 
@@ -99,10 +101,12 @@ def create_settings_dict():
 
         settings_dict["step01_file_{}_data".format(idx)] = os.path.join(settings_dict["step01_path_{}_data".format(idx)],
                                                                         "losses_bins_{:.4}.txt")
-        settings_dict["step01_file_{}_plots".format(idx)] = os.path.join(settings_dict["step01_path_{}_plots".format(idx)],
-                                                                         "losses_spectrum_{:.4}.pdf")
         settings_dict["step01_file_{}_err_data".format(idx)] = os.path.join(settings_dict["step01_path_{}_data".format(idx)],
                                                                         "losses_err_{:.4}.txt")
+        settings_dict["step01_file_{}_plots".format(idx)] = os.path.join(settings_dict["step01_path_{}_plots".format(idx)],
+                                                                         "losses_spectrum_{:.4}.pdf")
+        settings_dict["step01_file_multiplier_compare_{}_plot".format(idx)] = os.path.join(settings_dict["step01_path_{}_plots".format(idx)],
+                                                                         "multiplier_compare.pdf")
 
     # set directory for step 02
     settings_dict["step02_path"] = os.path.join(settings_dict["build_path"],
